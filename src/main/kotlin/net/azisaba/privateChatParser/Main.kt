@@ -54,14 +54,15 @@ fun processLine(filter: FilterParsedResult, line: String, outText: File, recipie
     val time = line.replace("\\[(.+?)] \\[Server thread/INFO]: .+? issued server command: /.*".toRegex(), "$1").trim().lowercase()
     val sender = line.replace(".*\\[Server thread/INFO]: (.+?) issued server command: /.*".toRegex(), "$1").trim().lowercase()
     val command = line.replace(".*\\[Server thread/INFO]: .+? issued server command: /(.*)".toRegex(), "$1").trim()
-    val isTell = command.matches("^(lunachat:|minecraft:)?(tell|message|msg|m|t|w) .+?".toRegex())
-    val isReply = command.matches("^(lunachat:)?(reply|r) .+?".toRegex())
+    val isTell = command.matches("(?i)^(lunachat:|minecraft:)?(tell|message|msg|m|t|w) .+?".toRegex())
+    val isReply = command.matches("(?i)^(lunachat:)?(reply|r) .+?".toRegex())
     val commandArguments = command.split(' ').filterIndexed { index, _ -> index > 0 }
     var recipient: String? = null
     var message: String? = null
     if (isTell) {
         if (commandArguments.isNotEmpty()) {
             recipients[sender] = commandArguments[0].lowercase()
+            recipients[commandArguments[0].lowercase()] = sender
             recipient = commandArguments[0].lowercase()
         }
         if (commandArguments.size > 1) {
@@ -70,7 +71,8 @@ fun processLine(filter: FilterParsedResult, line: String, outText: File, recipie
     }
     if (isReply) {
         if (commandArguments.isNotEmpty()) {
-            recipient = recipients[sender]
+            recipient = recipients[sender] ?: return
+            recipients[recipient] = sender
             message = commandArguments.joinToString(" ")
         }
     }
