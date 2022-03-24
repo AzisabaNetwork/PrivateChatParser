@@ -6,7 +6,10 @@ import kotlinx.cli.ArgType
 import kotlinx.cli.default
 import kotlinx.cli.vararg
 import net.azisaba.privateChatParser.argType.FileArgType
+import net.azisaba.privateChatParser.filter.FilterParsedResult
+import net.azisaba.privateChatParser.filter.FilterParser
 import net.azisaba.privateChatParser.util.RomajiTextReader
+import net.azisaba.privateChatParser.util.StringReader
 import org.json.JSONArray
 import java.io.File
 import java.util.zip.GZIPInputStream
@@ -16,8 +19,10 @@ fun main(args: Array<String>) {
     val input by parser.argument(FileArgType, "input", "Input file").vararg()
     val outputText by parser.option(FileArgType, "output-text", "t", "Output text (easily readable by human) file").default(File("output.txt"))
     val outputJson by parser.option(FileArgType, "output-json", "j", "Output JSON file").default(File("output.json"))
+    val unparsedFilter by parser.option(ArgType.String, "filter", "f", "Apply filter").default("")
     val append by parser.option(ArgType.Boolean, "append", "a", "Append to output file instead of overwriting").default(false)
     parser.parse(args)
+    val filter = FilterParsedResult(FilterParser.parse(StringReader(unparsedFilter)))
     val recipients = mutableMapOf<String, String>()
     val jsonArray = if (append) JSONArray(outputJson.readText()) else JSONArray()
     if (!append) outputText.writeText("")
@@ -34,17 +39,17 @@ fun main(args: Array<String>) {
         if (it.extension == "gz") {
             GZIPInputStream(it.inputStream()).use { stream ->
                 stream.reader().use { reader ->
-                    reader.forEachLine { line -> processLine(line, outputText, recipients, jsonArray) }
+                    reader.forEachLine { line -> processLine(filter, line, outputText, recipients, jsonArray) }
                 }
             }
         } else {
-            it.forEachLine { line -> processLine(line, outputText, recipients, jsonArray) }
+            it.forEachLine { line -> processLine(filter, line, outputText, recipients, jsonArray) }
         }
     }
     outputJson.writeText(jsonArray.toString(2))
 }
 
-fun processLine(line: String, outText: File, recipients: MutableMap<String, String>, jsonArray: JSONArray) {
+fun processLine(filter: FilterParsedResult, line: String, outText: File, recipients: MutableMap<String, String>, jsonArray: JSONArray) {
     if (!line.contains(" issued server command: ")) return
     val time = line.replace("\\[(.+?)] \\[Server thread/INFO]: .+? issued server command: /.*".toRegex(), "$1").trim().lowercase()
     val sender = line.replace(".*\\[Server thread/INFO]: (.+?) issued server command: /.*".toRegex(), "$1").trim().lowercase()
@@ -71,6 +76,7 @@ fun processLine(line: String, outText: File, recipients: MutableMap<String, Stri
     }
     recipient ?: return
     message ?: return
+    if (!filter.shouldLog(LogData(sender, recipient, isReply))) return
     println("[$time] [$sender -> $recipient]: ${RomajiTextReader.parse(message)} ($message)")
     outText.appendText("[$time] [$sender -> $recipient]: ${RomajiTextReader.parse(message)} ($message)\n")
     jsonArray.put(
