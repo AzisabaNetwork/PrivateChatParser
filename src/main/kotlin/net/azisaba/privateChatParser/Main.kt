@@ -1,21 +1,27 @@
 @file:JvmName("Main")
 package net.azisaba.privateChatParser
 
+import kotlinx.cli.ArgParser
+import kotlinx.cli.ArgType
+import kotlinx.cli.default
+import kotlinx.cli.vararg
+import net.azisaba.privateChatParser.argType.FileArgType
 import net.azisaba.privateChatParser.util.RomajiTextReader
 import org.json.JSONArray
 import java.io.File
 import java.util.zip.GZIPInputStream
 
 fun main(args: Array<String>) {
-    if (args.isEmpty()) {
-        println("Usage: java -jar PrivateChatParser.jar <input.(txt|log|log.gz)>")
-        return
-    }
-    val outText = File("output.txt")
+    val parser = ArgParser("PrivateChatParser", prefixStyle = ArgParser.OptionPrefixStyle.GNU)
+    val input by parser.argument(FileArgType, "input", "Input file").vararg()
+    val outputText by parser.option(FileArgType, "output-text", "t", "Output text (easily readable by human) file").default(File("output.txt"))
+    val outputJson by parser.option(FileArgType, "output-json", "j", "Output JSON file").default(File("output.json"))
+    val append by parser.option(ArgType.Boolean, "append", "a", "Append to output file instead of overwriting").default(false)
+    parser.parse(args)
     val recipients = mutableMapOf<String, String>()
-    val jsonArray = JSONArray()
-    outText.writeText("")
-    args.map { File(it) }.forEach {
+    val jsonArray = if (append) JSONArray(outputJson.readText()) else JSONArray()
+    if (!append) outputText.writeText("")
+    input.forEach {
         if (!it.exists()) {
             println("File ${it.path} does not exist.")
             return@forEach
@@ -28,14 +34,14 @@ fun main(args: Array<String>) {
         if (it.extension == "gz") {
             GZIPInputStream(it.inputStream()).use { stream ->
                 stream.reader().use { reader ->
-                    reader.forEachLine { line -> processLine(line, outText, recipients, jsonArray) }
+                    reader.forEachLine { line -> processLine(line, outputText, recipients, jsonArray) }
                 }
             }
         } else {
-            it.forEachLine { line -> processLine(line, outText, recipients, jsonArray) }
+            it.forEachLine { line -> processLine(line, outputText, recipients, jsonArray) }
         }
     }
-    File("output.json").writeText(jsonArray.toString(2))
+    outputJson.writeText(jsonArray.toString(2))
 }
 
 fun processLine(line: String, outText: File, recipients: MutableMap<String, String>, jsonArray: JSONArray) {

@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "net.azisaba"
-version = "1.0.0"
+version = "1.1.0"
 
 repositories {
     mavenCentral()
@@ -13,9 +13,16 @@ repositories {
 dependencies {
     implementation(kotlin("stdlib"))
     implementation("org.json:json:20220320")
+    implementation("org.jetbrains.kotlinx:kotlinx-cli:0.3.4")
 }
 
 tasks {
+    compileKotlin {
+        kotlinOptions {
+            freeCompilerArgs = listOf("-opt-in=kotlin.RequiresOptIn")
+        }
+    }
+
     shadowJar {
         manifest.attributes("Main-Class" to "net.azisaba.privateChatParser.Main")
         archiveFileName.set("PrivateChatParser-${project.version}.jar")
