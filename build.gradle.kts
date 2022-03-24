@@ -4,10 +4,14 @@ plugins {
 }
 
 group = "net.azisaba"
-version = "1.1.0"
+version = "1.1.1"
 
 repositories {
     mavenCentral()
+}
+
+java {
+    toolchain.languageVersion.set(JavaLanguageVersion.of(8))
 }
 
 dependencies {
